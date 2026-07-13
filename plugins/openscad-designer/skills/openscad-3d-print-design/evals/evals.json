@@ -1,0 +1,29 @@
+{
+  "skill_name": "openscad-3d-print-design",
+  "evals": [
+    {
+      "id": 0,
+      "name": "wall-bracket-overhang",
+      "prompt": "I want to 3D print a small wall bracket to hold a broom handle against the wall - basically an L-shaped hook: a flat back plate that screws to the wall (with a couple of screw holes) and an arm that sticks straight out for the broom to hang on. Can you model it as a .scad and give me an STL?",
+      "expected_output": "A single-piece L-bracket .scad + STL. The horizontal arm is a classic overhang trap; the skill should catch it via check_overhangs.py and either orient/chamfer it away or clearly report where support is needed and why. Connectivity + wall-thickness checks pass.",
+      "files": [],
+      "assertions": []
+    },
+    {
+      "id": 1,
+      "name": "toy-car-spinning-wheels",
+      "prompt": "Make me a little toy car my kid can roll across the floor - simple body, four wheels, and the wheels should actually spin (not be fused to the body). I've got a home FDM printer.",
+      "expected_output": "A multi-part design: body + wheels exported as separate STLs, with a clearance fit on the axles verified via check_interference.py (empty intersection = pass). Each part passes connectivity + wall-thickness + overhang checks in ITS OWN print orientation. Report explains how they assemble and the clearance chosen.",
+      "files": [],
+      "assertions": []
+    },
+    {
+      "id": 2,
+      "name": "hex-pen-holder-clean",
+      "prompt": "Design a desktop pen holder shaped like a hexagonal cup - open top, closed bottom, big enough for a handful of pens and pencils.",
+      "expected_output": "A single-piece hollow hex prism .scad + STL. Flat base with real contact area, walls thick enough to pass check_wall_thickness.py, and check_overhangs.py should pass clean (a vertical-walled cup needs no support) - a good test that the new check does NOT raise false alarms and the skill reports 'prints support-free'.",
+      "files": [],
+      "assertions": []
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "agxmeister-marketplace",
+  "owner": {
+    "name": "agxmeister",
+    "email": "aleksey.filatev@webpros.com"
+  },
+  "metadata": {
+    "description": "A Claude Code plugin marketplace.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "openscad-designer",
+      "source": "./plugins/openscad-designer",
+      "description": "Design and build 3D-printable models in OpenSCAD and export them to STL, with a print-optimized geometry and visual QA workflow."
+    }
+  ]
+}

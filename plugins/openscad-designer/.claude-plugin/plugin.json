@@ -1,0 +1,9 @@
+{
+  "name": "openscad-designer",
+  "description": "Design and build 3D-printable models in OpenSCAD and export them to STL, with a print-optimized geometry and visual QA workflow.",
+  "version": "0.1.0",
+  "author": {
+    "name": "agxmeister",
+    "email": "aleksey.filatev@webpros.com"
+  }
+}
