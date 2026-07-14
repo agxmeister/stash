@@ -13,7 +13,7 @@
       "id": 1,
       "name": "toy-car-spinning-wheels",
       "prompt": "Make me a little toy car my kid can roll across the floor - simple body, four wheels, and the wheels should actually spin (not be fused to the body). I've got a home FDM printer.",
-      "expected_output": "A multi-part design: body + wheels exported as separate STLs, with a clearance fit on the axles verified via check_interference.py (empty intersection = pass). Each part passes connectivity + wall-thickness + overhang checks in ITS OWN print orientation. Report explains how they assemble and the clearance chosen.",
+      "expected_output": "A multi-part design: body + wheels exported as separate STLs, with a loose/moving clearance fit (0.2mm or more per side, not the tight 0.1-0.2mm friction range) on the axles verified via check_interference.py (empty intersection = pass). Each part passes connectivity + wall-thickness + overhang checks in ITS OWN print orientation. Report explains how they assemble and the clearance chosen.",
       "files": [],
       "assertions": []
     },
@@ -22,6 +22,22 @@
       "name": "hex-pen-holder-clean",
       "prompt": "Design a desktop pen holder shaped like a hexagonal cup - open top, closed bottom, big enough for a handful of pens and pencils.",
       "expected_output": "A single-piece hollow hex prism .scad + STL. Flat base with real contact area, walls thick enough to pass check_wall_thickness.py, and check_overhangs.py should pass clean (a vertical-walled cup needs no support) - a good test that the new check does NOT raise false alarms and the skill reports 'prints support-free'.",
+      "files": [],
+      "assertions": []
+    },
+    {
+      "id": 3,
+      "name": "lantern-gnome-outstretched-arm",
+      "prompt": "I want a simple garden gnome figurine to print - pointy hat, round body, and one arm sticking straight out to the side holding a tiny lantern. Model it in OpenSCAD and give me an STL.",
+      "expected_output": "Tests the new split-for-printability guidance: the outstretched arm is a classic overhang that can't be reoriented away without breaking the body's flat base. The skill should either (a) split the arm from the body purely for printability, joining them with a connector using an explicit named gap variable, or (b) keep it fused and clearly report exactly where support is needed and why reorientation/chamfering couldn't avoid it. Either is an acceptable pass as long as the reasoning is explicit and connectivity/thickness/overhang checks pass on every exported STL.",
+      "files": [],
+      "assertions": []
+    },
+    {
+      "id": 4,
+      "name": "treasure-chest-friction-fit-lid",
+      "prompt": "Design a small two-part treasure chest for 3D printing - a base box and a lid. The lid should snap onto the base with a friction-fit peg (no hinge), meant to be pushed on by hand and stay put without glue.",
+      "expected_output": "Tests the new tight-connector gap guidance: the peg/socket gap should be a positive clearance in the 0.1-0.2mm per-side range (not true interference, not the looser 0.2mm+ moving-joint range), defined as an explicit named variable, and verified via check_interference.py / the intersection-export check (should export empty = zero collision). Base and lid each pass connectivity/thickness/overhang checks as their own STL.",
       "files": [],
       "assertions": []
     }
