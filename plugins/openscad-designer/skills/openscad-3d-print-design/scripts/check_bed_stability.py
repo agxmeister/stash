@@ -160,13 +160,14 @@ def rasterise(segments, cell):
     return filled
 
 
-def count_islands(filled):
+def island_components(filled):
+    """The filled cells split into 4-connected components."""
     seen = set()
-    islands = 0
+    comps = []
     for start in filled:
         if start in seen:
             continue
-        islands += 1
+        comp = {start}
         stack = [start]
         seen.add(start)
         while stack:
@@ -174,8 +175,36 @@ def count_islands(filled):
             for nb in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):
                 if nb in filled and nb not in seen:
                     seen.add(nb)
+                    comp.add(nb)
                     stack.append(nb)
-    return islands
+        comps.append(comp)
+    return comps
+
+
+def count_islands(filled):
+    return len(island_components(filled))
+
+
+def merge_height(triangles, z0, z1, cell, samples=24):
+    """The height at which the part's cross-section first becomes a single
+    connected island.
+
+    Until that height, each first-layer island is standing on its own: the
+    toolhead is pushing a separate little tower around, and the part's total
+    footprint is not holding it. Above it the islands brace each other. This
+    is the height each island's slenderness should be judged against - using
+    the full part height would condemn every ring-and-hub part, and using the
+    aggregate footprint (the old behaviour) lets two thin towers hide behind
+    a shared convex hull."""
+    for i in range(1, samples + 1):
+        z = z0 + (z1 - z0) * (i / samples) * 0.995
+        segs = slice_segments(triangles, z)
+        if not segs:
+            continue
+        filled = rasterise(segs, cell)
+        if filled and len(island_components(filled)) == 1:
+            return z
+    return None
 
 
 def convex_hull(points):
@@ -302,7 +331,8 @@ def main():
     cell = max(0.05, min(0.5, max(size[0], size[1]) / 400.0))
     filled = rasterise(segments, cell)
     area = len(filled) * cell * cell
-    islands = count_islands(filled)
+    comps = island_components(filled)
+    islands = len(comps)
     hull = convex_hull([p for s in segments for p in s])
     width = min_caliper_width(hull)
 
@@ -331,7 +361,50 @@ def main():
         f"(brim past 12, unstable past {args.tipping_limit:.0f})"
     )
 
-    problems = []
+    # Per-island stability. The aggregate numbers above treat every contact
+    # patch as one base, which is exactly wrong for a part that stands on
+    # several separate feet: two thin towers joined only near the top sum
+    # their areas and share one convex hull, so the pair reads as broad and
+    # stable while each tower is on its own until they meet.
+    island_problems = []
+    if islands > 1:
+        zm = merge_height(triangles, zmin + args.layer, zmax, cell)
+        free_h = (zm - zmin) if zm is not None else height
+        print(
+            f"  {islands} separate contact patches, joined at "
+            + (f"z = {zm:.1f}mm" if zm is not None else "no height - they "
+               "never merge into one cross-section")
+            + f"; until then each stands alone, so each is scored against "
+              f"that {free_h:.1f}mm on its own:"
+        )
+        x0 = min(p[0] for s_ in segments for p in s_)
+        y0 = min(p[1] for s_ in segments for p in s_)
+        for i, comp in enumerate(sorted(comps, key=len, reverse=True)):
+            pts = [(x0 + (c + 0.5) * cell, y0 + (r + 0.5) * cell)
+                   for r, c in comp]
+            i_area = len(comp) * cell * cell
+            i_width = min_caliper_width(convex_hull(pts)) if len(pts) >= 3 else 0.0
+            i_adh = free_h / math.sqrt(i_area) if i_area > 0 else float("inf")
+            i_tip = free_h / i_width if i_width > 1e-6 else float("inf")
+            cx = sum(p[0] for p in pts) / len(pts)
+            cy = sum(p[1] for p in pts) / len(pts)
+            flag = ""
+            if i_adh > args.adhesion_limit or i_tip > args.tipping_limit:
+                flag = "  <-- past the limit on its own"
+                island_problems.append(
+                    f"contact patch {i + 1} near ({cx:.0f}, {cy:.0f}) is only "
+                    f"{i_area:.1f}mm^2 / {i_width:.1f}mm wide and stands alone "
+                    f"for {free_h:.0f}mm (adhesion {i_adh:.1f}, tipping "
+                    f"{i_tip:.1f}) - the part's total footprint is not holding "
+                    f"it up there"
+                )
+            print(
+                f"    patch {i + 1}: {i_area:7.1f}mm^2, {i_width:5.1f}mm wide, "
+                f"near ({cx:6.1f}, {cy:6.1f})  adhesion {i_adh:4.1f} / "
+                f"tipping {i_tip:4.1f}{flag}"
+            )
+
+    problems = list(island_problems)
     if adhesion > args.adhesion_limit:
         problems.append(
             f"only {area:.1f}mm^2 of bed contact under a {height:.0f}mm-tall "

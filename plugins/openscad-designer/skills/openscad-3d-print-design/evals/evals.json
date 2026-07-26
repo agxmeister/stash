@@ -28,7 +28,9 @@
         "Ran check_bed_stability.py and it passes cleanly (no brim needed for a squat cup)",
         "Reports that the part prints support-free",
         "Exactly one STL, manifold, single piece, passing wall thickness",
-        "Did not recommend a brim for a part comfortably in the safe band"
+        "Did not recommend a brim for a part comfortably in the safe band",
+        "No false alarm from the overhang check: nothing on this plain vertical-walled cup was called airborne or flagged as needing a fix",
+        "Did not add unnecessary geometry (ribs, seating features, fillets) in response to overhang or seating guidance"
       ]
     },
     {
@@ -37,7 +39,14 @@
       "prompt": "I want a simple garden gnome figurine to print - pointy hat, round body, and one arm sticking straight out to the side holding a tiny lantern. Model it in OpenSCAD and give me an STL.",
       "expected_output": "Tests the new split-for-printability guidance: the outstretched arm is a classic overhang that can't be reoriented away without breaking the body's flat base. The skill should either (a) split the arm from the body purely for printability, joining them with a connector using an explicit named gap variable, or (b) keep it fused and clearly report exactly where support is needed and why reorientation/chamfering couldn't avoid it. Either is an acceptable pass as long as the reasoning is explicit and connectivity/thickness/overhang checks pass on every exported STL.",
       "files": [],
-      "assertions": []
+      "assertions": [
+        "Handled the outstretched arm deliberately: split it for printability, angled/chamfered it into the self-supporting range, or reported exactly where support is needed and why reorienting could not avoid it",
+        "Did not wave the arm through as fine - if it ships fused and unsupported, the report says plainly where support lands",
+        "Every exported STL passes check_connectivity.py (exactly one piece) and check_wall_thickness.py",
+        "Ran check_bed_stability.py on each exported piece",
+        "Did not over-split: no cuts beyond what printability actually requires",
+        "If the model was split, the joint uses an explicit named clearance variable and was verified with the intersection/check_interference.py procedure"
+      ]
     },
     {
       "id": 4,
@@ -77,6 +86,41 @@
         "Ran the intersection() / check_interference.py verification on the mating joints",
         "Ran check_bed_stability.py on each exported piece",
         "All exported STLs are manifold and pass check_connectivity.py as exactly one piece"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "rotor-audit-airborne",
+      "prompt": "Here's the rotor from a toy I'm building \u2014 models/rotor/rotor.scad, plus the shared lib it includes. Can you check it over before I print it, and fix anything you find? It's printing flat on a Bambu A1 mini.",
+      "expected_output": "Audit mode on a model whose blades hang 1.7mm above the plate while the file's own header comment claims nothing starts in mid-air. Tests the airborne classification and the re-derive-the-rationale discipline: the fix is to seat the blades, not to accept support.",
+      "files": [
+        "inputs/flying-disc/lib/common.scad",
+        "inputs/flying-disc/models/rotor/rotor.scad"
+      ],
+      "assertions": [
+        "Detected that the blades never touch the bed - identified the ~1.7mm gap between the blade undersides and the plate as a defect, not as an accepted overhang",
+        "Did not take the file's own claim that 'nothing starts in mid-air' at face value; re-derived it from the exported mesh instead of repeating the comment",
+        "Fixed it by seating the blades on the plate (lowest edge at z=0), rather than by accepting support, adding support material, or shipping it as-is",
+        "The delivered STL, re-checked independently, contains no region that starts above the plate and is too wide to bridge",
+        "Redefined the blade height parameter as the lowest edge rather than the pitch axis (or otherwise made the seated arrangement what the default expresses)",
+        "Ran all four check scripts (connectivity, wall thickness, overhangs, bed stability) on an exported STL",
+        "The delivered STL is manifold and exactly one connected piece",
+        "Addressed the 160mm rotor against the stated 180mm A1 mini build volume"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "shrouded-fan-rotor",
+      "prompt": "I want to print a little ducted fan rotor for a desk toy \u2014 about 90mm across. A central hub with a hole for a 5mm shaft, an outer ring around the outside, and four angled blades running from the hub out to the ring. Model it in OpenSCAD and give me an STL.",
+      "expected_output": "Generative version of the same trap: blades spanning hub to ring are the natural thing to model floating at mid-height. The blades should be seated on the plate so they print as ramps, and the exported STL should carry no airborne region.",
+      "files": [],
+      "assertions": [
+        "The blades' lowest edge is seated on the bed (within ~0.5mm of z=0) rather than floating in the air between hub and ring",
+        "The exported STL, re-checked independently, contains no region that starts above the plate and is too wide to bridge",
+        "Explicitly reasoned about what is underneath the blades' first layer - not just about the blades' overhang angle",
+        "Ran all four check scripts (connectivity, wall thickness, overhangs, bed stability) on an exported STL",
+        "Exported exactly one manifold, single-piece STL (a fan rotor has no reason to be split)",
+        "The hub bore is sized for a 5mm shaft with a stated clearance"
       ]
     }
   ]
