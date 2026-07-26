@@ -23,7 +23,13 @@
       "prompt": "Design a desktop pen holder shaped like a hexagonal cup - open top, closed bottom, big enough for a handful of pens and pencils.",
       "expected_output": "A single-piece hollow hex prism .scad + STL. Flat base with real contact area, walls thick enough to pass check_wall_thickness.py, and check_overhangs.py should pass clean (a vertical-walled cup needs no support) - a good test that the new check does NOT raise false alarms and the skill reports 'prints support-free'.",
       "files": [],
-      "assertions": []
+      "assertions": [
+        "Did NOT split the pen holder into multiple printed pieces - there is no reason to, and doing so is over-correction",
+        "Ran check_bed_stability.py and it passes cleanly (no brim needed for a squat cup)",
+        "Reports that the part prints support-free",
+        "Exactly one STL, manifold, single piece, passing wall thickness",
+        "Did not recommend a brim for a part comfortably in the safe band"
+      ]
     },
     {
       "id": 3,
@@ -40,6 +46,38 @@
       "expected_output": "Tests the new tight-connector gap guidance: the peg/socket gap should be a positive clearance in the 0.1-0.2mm per-side range (not true interference, not the looser 0.2mm+ moving-joint range), defined as an explicit named variable, and verified via check_interference.py / the intersection-export check (should export empty = zero collision). Base and lid each pass connectivity/thickness/overhang checks as their own STL.",
       "files": [],
       "assertions": []
+    },
+    {
+      "id": 5,
+      "name": "tall-spire-tapered-bottom",
+      "prompt": "Can you model me a twisted spire finial for the top of my gate post? Something like 220mm tall and 15mm across, with a nice twist running up it, and a tapered point at the bottom that pushes down into a hole in the post. OpenSCAD source plus an STL would be great.",
+      "expected_output": "Tests bed-stability: a 220mm part on a 15mm section with a taper at the BOTTOM is the exact shape that passes connectivity/thickness/overhang while being unprintable. The skill should catch it with check_bed_stability.py and fix it by moving the taper to the top, giving it a real base, or splitting - not by shipping it and calling it support-free.",
+      "files": [],
+      "assertions": [
+        "Ran check_bed_stability.py on an exported STL (the script, not hand-waved footprint reasoning)",
+        "Recognised that a 220mm-tall part on a ~15mm section is a bed-adhesion / stability problem rather than declaring it fine",
+        "The printed part does NOT rest on the tapered point: the taper was moved to the top, removed, reoriented, or split so no piece stands on it",
+        "Every exported STL passes check_bed_stability.py, or any piece left in the marginal band is explicitly reported as needing a brim",
+        "Every exported piece lands in the SAFE band (adhesion <= 8 and tipping <= 12), not merely under the hard limits - or the report says why a brim-band piece was the best available option",
+        "Addressed the 220mm height against the build volume - either asked the user what printer they have or stated the assumption explicitly",
+        "All exported STLs pass check_connectivity.py (exactly one piece) and check_wall_thickness.py",
+        "Did not spend significant effort investigating spurious sub-threshold wall readings at the cut faces (the seam artifact the fixed script no longer reports)"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "raceway-exceeds-bed",
+      "prompt": "I need a cable raceway to hide the cables running along the back of my desk - 320mm long, about 40mm wide and 25mm tall, an open channel with a lid that clips on. I'm printing on a Bambu A1 mini so 180x180x180 is all I've got.",
+      "expected_output": "Tests the build-volume constraint and the splitting mechanics: 320mm cannot print on a 180mm machine, so it must be split into keyed, verified segments, each checked for stability in its own orientation.",
+      "files": [],
+      "assertions": [
+        "Recognised that 320mm exceeds the stated 180mm build volume and split the raceway into multiple printed segments",
+        "Every exported STL fits inside 180 x 180 x 180mm",
+        "Segments join with a keyed or registered connector sized by an explicit named clearance variable",
+        "Ran the intersection() / check_interference.py verification on the mating joints",
+        "Ran check_bed_stability.py on each exported piece",
+        "All exported STLs are manifold and pass check_connectivity.py as exactly one piece"
+      ]
     }
   ]
 }

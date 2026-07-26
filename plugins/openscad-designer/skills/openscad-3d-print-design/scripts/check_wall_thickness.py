@@ -12,8 +12,13 @@ threshold, regardless of how it looks on screen.
 
 Method: for a sample of triangles across the mesh, cast a ray from the
 triangle's centroid inward along its (inverted) normal and find the nearest
-opposite surface the ray hits. That hit distance is the wall thickness at
-that point. This is a sampled heuristic, not an exhaustive solve - it will
+opposite surface the ray hits, counting only surfaces the ray leaves through
+roughly head-on. That hit distance is the wall thickness at that point. The
+head-on requirement matters: a ray fired near an edge can otherwise escape
+through a neighbouring face at a glancing angle a fraction of a millimetre
+later and report that escape as a paper-thin wall, which is why flat cut
+faces - every seam of every part split for printability - used to produce
+phantom warnings. This is a sampled heuristic, not an exhaustive solve - it will
 reliably find thin walls and thin protrusions that make up a reasonable
 fraction of the surface, but can miss a thin feature that's a tiny fraction
 of a large mesh's triangle count. For anything safety- or load-bearing,
@@ -160,11 +165,28 @@ def ray_triangle_intersect(origin, direction, tri):
 
 
 def build_grid(triangles, cell_size):
+    """Index every cell a triangle overlaps, not just the one holding its centroid.
+
+    Centroid-only bucketing quietly breaks on the exact geometry OpenSCAD
+    produces most: a `linear_extrude`d part is made of triangles running the
+    whole length of the extrusion, so a 160mm-long triangle used to live in a
+    single cell near its middle. A probe fired at a thin feature 80mm away
+    never looked in that cell, found no opposing surface, and the wall was
+    reported as comfortably thick - a false pass on exactly the parts most
+    likely to have a thin wall somewhere along their length.
+
+    Registering a triangle in every cell its bounding box touches costs a
+    little memory and makes long triangles findable from anywhere along
+    themselves.
+    """
     grid = defaultdict(list)
     for idx, tri in enumerate(triangles):
-        cx, cy, cz = centroid(tri)
-        cell = (int(cx // cell_size), int(cy // cell_size), int(cz // cell_size))
-        grid[cell].append(idx)
+        lo = [min(v[k] for v in tri) for k in range(3)]
+        hi = [max(v[k] for v in tri) for k in range(3)]
+        for cx in range(int(lo[0] // cell_size), int(hi[0] // cell_size) + 1):
+            for cy in range(int(lo[1] // cell_size), int(hi[1] // cell_size) + 1):
+                for cz in range(int(lo[2] // cell_size), int(hi[2] // cell_size) + 1):
+                    grid[(cx, cy, cz)].append(idx)
     return grid
 
 
@@ -191,15 +213,47 @@ def find_thickness(origin, direction, self_idx, triangles, grid, cell_size, max_
     cz = int(origin[2] // cell_size)
     best = None
     max_radius = int(max_dist // cell_size) + 2
+    # A triangle spans as many cells as its bounding box touches, so the same
+    # candidate surfaces once per cell it occupies. Ray-testing it once per
+    # appearance is pure waste on extruded meshes, where a single triangle can
+    # cover dozens of cells.
+    tested = {self_idx}
     for radius in range(0, max_radius + 1):
         found_any_candidate = False
         for cell in cells_within_radius((cx, cy, cz), radius):
             for idx in grid.get(cell, ()):
-                if idx == self_idx:
+                if idx in tested:
                     continue
+                tested.add(idx)
                 found_any_candidate = True
                 t = ray_triangle_intersect(origin, direction, triangles[idx])
-                if t is not None and t <= max_dist and (best is None or t < best):
+                if t is None or t > max_dist:
+                    continue
+                # A wall's far side is a surface the ray leaves through roughly
+                # head-on. Two other things can stop a ray, and neither is a
+                # wall:
+                #
+                #   - a surface the ray is *entering* (normal pointing back at
+                #     it) - another facet of the face we started from,
+                #   - a surface the ray merely grazes on its way out.
+                #
+                # The second one is what produced the bogus readings. Probing
+                # from a point just below a flat cut face, along a wall that
+                # leans a few degrees, the ray escapes through that cut face a
+                # fraction of a millimetre later and reports ~0.8mm of "wall"
+                # where the solid is really 11mm across. Cut faces are exactly
+                # what splitting a part for printability creates, so every
+                # seam used to generate a handful of these.
+                #
+                # Requiring the exit to be within ~60 degrees of head-on keeps
+                # genuine walls (parallel faces give 1.0, a 45-degree wedge
+                # 0.7) and drops grazes. A wall too tapered to pass from this
+                # side still gets probed from its other face, where the
+                # geometry is closer to head-on.
+                hit_normal = triangle_normal(triangles[idx])
+                if hit_normal is None or dot(direction, hit_normal) < 0.5:
+                    continue
+                if best is None or t < best:
                     best = t
         # once we have a hit, one extra ring guarantees we're not missing a
         # closer hit that straddles a cell boundary
