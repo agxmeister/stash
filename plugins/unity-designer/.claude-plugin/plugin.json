@@ -1,0 +1,9 @@
+{
+  "name": "unity-designer",
+  "description": "Build and modify Unity games/scenes through an MCP/Uplink-style bridge, with a reliable pattern for Editor scripts that create scenes, prefabs, and sprites despite AssetDatabase's async quirks.",
+  "version": "0.1.0",
+  "author": {
+    "name": "agxmeister",
+    "email": "aleksey.filatev@webpros.com"
+  }
+}
